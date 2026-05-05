@@ -1,0 +1,95 @@
+<script>
+function validateIdea() {
+  const text = document.getElementById("ideaInput").value.toLowerCase();
+
+  const sentences = text.split(/[.!?]/).map(s => s.trim()).filter(Boolean);
+
+  let result = {
+    problem: "",
+    solution: "",
+    target: "",
+    benefit: "",
+    tech: [],
+    risks: [],
+    score: 0,
+    verdict: ""
+  };
+
+  const painWords = ["problem","schwierig","aufwendig","nervig","zeit","kosten"];
+  const moneyWords = ["zahlen","kosten","sparen","geld","profit"];
+  const techWords = ["app","ki","sensor","software","automatisch","system","plattform"];
+  const targetWords = ["für","kunden","nutzer","menschen","unternehmen"];
+  const benefitWords = ["hilft","spart","verbessert","ermöglicht","optimiert"];
+
+  sentences.forEach((s, i) => {
+
+    if (!result.problem && (painWords.some(w => s.includes(w)) || i === 0)) {
+      result.problem = s;
+    }
+
+    if (!result.solution && (s.includes("bauen") || s.includes("lösung") || s.includes("system"))) {
+      result.solution = s;
+    }
+
+    if (!result.target && targetWords.some(w => s.includes(w))) {
+      result.target = s;
+    }
+
+    if (!result.benefit && benefitWords.some(w => s.includes(w))) {
+      result.benefit = s;
+    }
+
+    techWords.forEach(w => {
+      if (s.includes(w) && !result.tech.includes(w)) {
+        result.tech.push(w);
+      }
+    });
+
+    if (s.includes("problem") || s.includes("risiko")) {
+      result.risks.push(s);
+    }
+
+  });
+
+  // 🔥 LEVEL 2 SCORING
+
+  let score = 0;
+
+  // Problem Stärke
+  if (result.problem && painWords.some(w => result.problem.includes(w))) score += 2;
+  else if (result.problem) score += 1;
+
+  // Lösung
+  if (result.solution) score += 2;
+
+  // Zielgruppe
+  if (result.target) score += 2;
+
+  // Nutzen
+  if (result.benefit) score += 2;
+
+  // Technik
+  if (result.tech.length > 0) score += 1;
+
+  // Geld / Markt
+  if (moneyWords.some(w => text.includes(w))) score += 1;
+
+  // 🔥 VERDICT (NEU)
+
+  let verdict = "";
+
+  if (score >= 8) verdict = "🔥 Stark – sofort testen";
+  else if (score >= 6) verdict = "⚠️ Mittel – verbessern";
+  else verdict = "❌ Schwach – neu denken";
+
+  // OUTPUT
+  document.getElementById("score").innerText = score + "/10";
+  document.getElementById("problem").innerText = result.problem || "Nicht erkannt";
+  document.getElementById("solution").innerText = result.solution || "Nicht erkannt";
+  document.getElementById("target").innerText = result.target || "Zielgruppe unklar";
+  document.getElementById("benefit").innerText = result.benefit || "Nutzen unklar";
+  document.getElementById("tech").innerText = result.tech.length ? result.tech.join(", ") : "Keine erkannt";
+  document.getElementById("risks").innerText = result.risks.length ? result.risks.join(" | ") : "Keine erkannt";
+  document.getElementById("verdict").innerText = verdict;
+}
+</script>
