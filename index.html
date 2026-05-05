@@ -1,95 +1,93 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Idea Validator</title>
+
+<style>
+body {
+  background: #0f172a;
+  color: white;
+  font-family: Arial;
+  padding: 20px;
+}
+
+textarea, button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 10px;
+}
+
+button {
+  background: linear-gradient(to right, #3b82f6, #22c55e);
+  border: none;
+  font-weight: bold;
+}
+
+.card {
+  background: #1e293b;
+  padding: 15px;
+  margin-top: 10px;
+  border-radius: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Idea Validator</h1>
+
+<textarea id="ideaInput" placeholder="Beschreibe deine Idee..."></textarea>
+<button onclick="validateIdea()">Jetzt analysieren</button>
+
+<div class="card">Score: <span id="score"></span></div>
+<div class="card">Bewertung: <span id="verdict"></span></div>
+<div class="card">Problem: <span id="problem"></span></div>
+<div class="card">Lösung: <span id="solution"></span></div>
+<div class="card">Zielgruppe: <span id="target"></span></div>
+
 <script>
 function validateIdea() {
-  const text = document.getElementById("ideaInput").value.toLowerCase();
 
+  const text = document.getElementById("ideaInput").value.toLowerCase();
   const sentences = text.split(/[.!?]/).map(s => s.trim()).filter(Boolean);
 
-  let result = {
-    problem: "",
-    solution: "",
-    target: "",
-    benefit: "",
-    tech: [],
-    risks: [],
-    score: 0,
-    verdict: ""
-  };
+  let problem = "";
+  let solution = "";
+  let target = "";
 
-  const painWords = ["problem","schwierig","aufwendig","nervig","zeit","kosten"];
-  const moneyWords = ["zahlen","kosten","sparen","geld","profit"];
-  const techWords = ["app","ki","sensor","software","automatisch","system","plattform"];
-  const targetWords = ["für","kunden","nutzer","menschen","unternehmen"];
-  const benefitWords = ["hilft","spart","verbessert","ermöglicht","optimiert"];
+  sentences.forEach((s,i) => {
 
-  sentences.forEach((s, i) => {
+    if (!problem && i === 0)
+      problem = s;
 
-    if (!result.problem && (painWords.some(w => s.includes(w)) || i === 0)) {
-      result.problem = s;
-    }
+    if (!solution && s.includes("bauen"))
+      solution = s;
 
-    if (!result.solution && (s.includes("bauen") || s.includes("lösung") || s.includes("system"))) {
-      result.solution = s;
-    }
-
-    if (!result.target && targetWords.some(w => s.includes(w))) {
-      result.target = s;
-    }
-
-    if (!result.benefit && benefitWords.some(w => s.includes(w))) {
-      result.benefit = s;
-    }
-
-    techWords.forEach(w => {
-      if (s.includes(w) && !result.tech.includes(w)) {
-        result.tech.push(w);
-      }
-    });
-
-    if (s.includes("problem") || s.includes("risiko")) {
-      result.risks.push(s);
-    }
+    if (!target && (s.includes("für") || s.includes("kunden")))
+      target = s;
 
   });
 
-  // 🔥 LEVEL 2 SCORING
-
   let score = 0;
 
-  // Problem Stärke
-  if (result.problem && painWords.some(w => result.problem.includes(w))) score += 2;
-  else if (result.problem) score += 1;
+  if (problem) score += 3;
+  if (solution) score += 3;
+  if (target) score += 2;
 
-  // Lösung
-  if (result.solution) score += 2;
+  let verdict = "❌ Schwach";
+  if (score >= 6) verdict = "⚠️ Mittel";
+  if (score >= 8) verdict = "🔥 Stark";
 
-  // Zielgruppe
-  if (result.target) score += 2;
-
-  // Nutzen
-  if (result.benefit) score += 2;
-
-  // Technik
-  if (result.tech.length > 0) score += 1;
-
-  // Geld / Markt
-  if (moneyWords.some(w => text.includes(w))) score += 1;
-
-  // 🔥 VERDICT (NEU)
-
-  let verdict = "";
-
-  if (score >= 8) verdict = "🔥 Stark – sofort testen";
-  else if (score >= 6) verdict = "⚠️ Mittel – verbessern";
-  else verdict = "❌ Schwach – neu denken";
-
-  // OUTPUT
   document.getElementById("score").innerText = score + "/10";
-  document.getElementById("problem").innerText = result.problem || "Nicht erkannt";
-  document.getElementById("solution").innerText = result.solution || "Nicht erkannt";
-  document.getElementById("target").innerText = result.target || "Zielgruppe unklar";
-  document.getElementById("benefit").innerText = result.benefit || "Nutzen unklar";
-  document.getElementById("tech").innerText = result.tech.length ? result.tech.join(", ") : "Keine erkannt";
-  document.getElementById("risks").innerText = result.risks.length ? result.risks.join(" | ") : "Keine erkannt";
   document.getElementById("verdict").innerText = verdict;
+  document.getElementById("problem").innerText = problem || "Nicht erkannt";
+  document.getElementById("solution").innerText = solution || "Nicht erkannt";
+  document.getElementById("target").innerText = target || "Unklar";
 }
 </script>
+
+</body>
+</html>
