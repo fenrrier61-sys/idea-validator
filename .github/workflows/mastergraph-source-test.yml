@@ -1,0 +1,55 @@
+name: MasterGraph source bridge test
+
+on:
+  push:
+    branches:
+      - mastergraph-source-test
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  relay-to-mastergraph:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request GitHub OIDC token
+        shell: bash
+        run: |
+          set -euo pipefail
+          OIDC_JSON="$(curl -fsSL \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=mastergraph-event-bridge")"
+          OIDC_TOKEN="$(printf '%s' "$OIDC_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$OIDC_TOKEN"
+          printf '%s' "$OIDC_TOKEN" > /tmp/mastergraph_oidc_token
+
+      - name: Build MasterGraph event
+        shell: bash
+        run: |
+          python3 - <<'PY' > /tmp/mastergraph_event.json
+          import datetime, json, os
+          print(json.dumps({
+              "eventId": f"github:{os.environ['GITHUB_RUN_ID']}:{os.environ['GITHUB_RUN_ATTEMPT']}",
+              "source": "github-actions",
+              "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              "title": "MasterGraph Normalbetrieb / Intake & Routing",
+              "text": "GitHub Actions external-source test: automatischen Intake für P-OPS-001 fortsetzen.",
+              "activeProjectId": "P-OPS-001",
+          }))
+          PY
+
+      - name: Send event to MasterGraph
+        shell: bash
+        run: |
+          set -euo pipefail
+          OIDC_TOKEN="$(cat /tmp/mastergraph_oidc_token)"
+          HTTP_STATUS="$(curl -sS -o /tmp/mastergraph_response.json -w '%{http_code}' \
+            -X POST 'https://mastergraph-event-bridge.floot.app/_api/intake/events' \
+            -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
+            --data-binary @/tmp/mastergraph_event.json)"
+          cat /tmp/mastergraph_response.json
+          echo
+          echo "HTTP $HTTP_STATUS"
+          test "$HTTP_STATUS" = "202" -o "$HTTP_STATUS" = "200"
