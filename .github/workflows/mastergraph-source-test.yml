@@ -1,9 +1,11 @@
-name: MasterGraph source bridge test
+name: MasterGraph chat/user ingress relay
 
 on:
   push:
     branches:
       - mastergraph-source-test
+    paths:
+      - mastergraph/chat-ingress-event.json
 
 permissions:
   contents: read
@@ -13,6 +15,45 @@ jobs:
   relay-to-mastergraph:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out relay payload
+        uses: actions/checkout@v4
+
+      - name: Validate and normalize chat ingress event
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > /tmp/mastergraph_event.json
+          import datetime, json, re
+
+          with open("mastergraph/chat-ingress-event.json", "r", encoding="utf-8") as f:
+              raw = json.load(f)
+
+          event_id = str(raw.get("eventId", "")).strip()
+          title = str(raw.get("title", "")).strip()
+          text = str(raw.get("text", "")).strip()
+          project_id = raw.get("activeProjectId")
+          if project_id is not None:
+              project_id = str(project_id).strip()
+
+          if not event_id or len(event_id) > 200:
+              raise SystemExit("invalid eventId")
+          if not text or len(text) > 20000:
+              raise SystemExit("invalid text")
+          if len(title) > 500:
+              raise SystemExit("invalid title")
+          if project_id and not re.fullmatch(r"P-[A-Z][A-Z0-9]{1,7}-[0-9]{3}", project_id):
+              raise SystemExit("invalid activeProjectId")
+
+          print(json.dumps({
+              "eventId": event_id,
+              "source": "github-actions",
+              "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              "title": title or "MasterGraph Chat/User Ingress",
+              "text": "origin=chatgpt-project-user\n" + text,
+              "activeProjectId": project_id,
+          }, ensure_ascii=False))
+          PY
+
       - name: Request GitHub OIDC token
         shell: bash
         run: |
@@ -24,22 +65,7 @@ jobs:
           echo "::add-mask::$OIDC_TOKEN"
           printf '%s' "$OIDC_TOKEN" > /tmp/mastergraph_oidc_token
 
-      - name: Build MasterGraph event
-        shell: bash
-        run: |
-          python3 - <<'PY' > /tmp/mastergraph_event.json
-          import datetime, json, os
-          print(json.dumps({
-              "eventId": f"github:{os.environ['GITHUB_RUN_ID']}:{os.environ['GITHUB_RUN_ATTEMPT']}",
-              "source": "github-actions",
-              "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-              "title": "MasterGraph Normalbetrieb / Intake & Routing",
-              "text": "GitHub Actions external-source test: automatischen Intake für P-OPS-001 fortsetzen.",
-              "activeProjectId": "P-OPS-001",
-          }))
-          PY
-
-      - name: Send event to MasterGraph
+      - name: Send chat ingress event to MasterGraph
         shell: bash
         run: |
           set -euo pipefail
